@@ -1,0 +1,25 @@
+# Virtual environment
+venv/
+env/
+.env/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Version control
+.git/
+.gitignore
+
+# Environment files (if you have any secrets locally)
+.env
+.env.local
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Any large data files you might have (adjust as needed)
+*.csv
+*.json
+*.pickle
