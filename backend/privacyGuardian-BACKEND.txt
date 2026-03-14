@@ -1,0 +1,1713 @@
+# Folder dump for: C:\BYTECAMP\backend
+
+## Folder structure
+
+backend
+├── backend
+│   ├── app
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── main.py
+│   ├── connectors
+│   │   ├── __init__.py
+│   │   ├── base_connector.py
+│   │   ├── cloud_connector.py
+│   │   ├── file_scanner.py
+│   │   ├── mongodb_connector.py
+│   │   └── sql_connector.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── consent_model.py
+│   │   ├── data_location_model.py
+│   │   ├── logs_model.py
+│   │   └── user_model.py
+│   ├── routes
+│   │   ├── __init__.py
+│   │   ├── chatbot_routes.py
+│   │   ├── consent_routes.py
+│   │   ├── dashboard_routes.py
+│   │   ├── deletion_routes.py
+│   │   ├── logs_routes.py
+│   │   ├── pii_routes.py
+│   │   └── user_routes.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── chatbot_processor.py
+│   │   ├── compliance_logger.py
+│   │   ├── consent_service.py
+│   │   ├── data_mapping_service.py
+│   │   ├── deletion_service.py
+│   │   └── pii_detection_service.py
+│   ├── utils
+│   │   ├── __init__.py
+│   │   ├── constants.py
+│   │   └── helpers.py
+│   ├── .env
+│   ├── CODE-MAKER.PY
+│   ├── privacyGuardian-BACKEND.txt
+│   └── requirements.txt
+└── RANDOM_DATAGEN.py
+
+---
+
+## Files and contents
+
+### RANDOM_DATAGEN.py
+
+```py
+import random
+import string
+from datetime import datetime
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017")
+db = client["privacyguardian"]
+
+# Clear existing collections (optional - comment out if you want to keep existing data)
+db.users.drop()
+db.data_locations.drop()
+db.consents.drop()
+print("Cleared existing collections.")
+
+# Initialize Faker with Indian locale
+from faker import Faker
+fake = Faker('en_IN')
+
+def generate_aadhaar():
+    """Generate a random 12-digit Aadhaar number"""
+    return ''.join([str(random.randint(0,9)) for _ in range(12)])
+
+def generate_pan():
+    """Generate a random PAN in format ABCDE1234F"""
+    letters = ''.join(random.choices(string.ascii_uppercase, k=5))
+    digits = ''.join(random.choices(string.digits, k=4))
+    last_letter = random.choice(string.ascii_uppercase)
+    return letters + digits + last_letter
+
+def generate_phone():
+    """Generate Indian mobile number starting with 6-9, 10 digits"""
+    first = str(random.randint(6,9))
+    rest = ''.join([str(random.randint(0,9)) for _ in range(9)])
+    return first + rest
+
+def generate_email(name):
+    """Generate email from name"""
+    return name.lower().replace(' ', '.') + "@example.com"
+
+# Generate 20 test users
+users = []
+for i in range(20):
+    name = fake.name()
+    email = generate_email(name)
+    phone = generate_phone()
+    aadhaar = generate_aadhaar()
+    pan = generate_pan()
+    address = fake.address().replace('\n', ', ')
+    
+    user = {
+        "user_id": str(1000 + i),  # simple numeric ID
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "aadhaar": aadhaar,
+        "pan": pan,
+        "address": address,
+        "passport": None,  # optional
+        "driving_license": None,
+        "account_number": None
+    }
+    users.append(user)
+
+# Insert users
+result = db.users.insert_many(users)
+print(f"Inserted {len(result.inserted_ids)} users.")
+
+# For each user, create a data location entry (pointing to the MongoDB collection)
+locations = []
+for user in users:
+    loc_entry = {
+        "user_id": user["user_id"],
+        "locations": [
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "aadhaar",
+                "value": user["aadhaar"]
+            },
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "pan",
+                "value": user["pan"]
+            },
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "phone",
+                "value": user["phone"]
+            },
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "email",
+                "value": user["email"]
+            }
+        ],
+        "last_updated": datetime.utcnow().isoformat() + "Z"
+    }
+    locations.append(loc_entry)
+
+# Insert data locations
+db.data_locations.insert_many(locations)
+print(f"Inserted {len(locations)} data location records.")
+
+# Generate consents for each user
+consents = []
+for user in users:
+    consent = {
+        "user_id": user["user_id"],
+        "purpose": "data_processing",
+        "status": random.choice(["active", "active", "active", "withdrawn"]),  # 75% active
+        "granted_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat() + "Z",
+        "withdrawn_at": None
+    }
+    if consent["status"] == "withdrawn":
+        consent["withdrawn_at"] = fake.date_time_between(start_date=consent["granted_at"], end_date="now").isoformat() + "Z"
+    consents.append(consent)
+
+db.consents.insert_many(consents)
+print(f"Inserted {len(consents)} consent records.")
+
+print("\nTest data population complete!")
+print("Sample user IDs:", [u["user_id"] for u in users[:5]])
+```
+
+### backend\.env
+
+```
+
+```
+
+### backend\CODE-MAKER.PY
+
+```py
+#!/usr/bin/env python3
+
+import os
+from pathlib import Path
+
+# --------------------------------------
+# HARDCODED FOLDER PATH
+# --------------------------------------
+HARDCODED_FOLDER = r"C:\\BYTECAMP\\backend"
+
+# Output file name
+OUTPUT_FILE = "privacyGuardian-BACKEND.txt"
+
+# Max file size (0 = no limit)
+MAX_SIZE = 0
+
+# Folders to exclude
+EXCLUDE_FOLDERS = {'venv', '__pycache__', '.git', '.idea', '.vscode'}
+
+# File extensions to exclude
+EXCLUDE_EXTENSIONS = {'.pyc', '.pyo', '.pyd', '.so', '.dll', '.exe'}
+
+# --------------------------------------
+
+
+def is_binary_file(path, blocksize=1024):
+    """Detect binary files safely."""
+    try:
+        with open(path, "rb") as f:
+            block = f.read(blocksize)
+            if not block:
+                return False
+            if b"\x00" in block:
+                return True
+            text_chars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)))
+            nontext = sum(1 for b in block if b not in text_chars)
+            return (nontext / max(1, len(block))) > 0.30
+    except Exception:
+        return True
+
+
+def build_tree(root: Path):
+    """Build a clean folder tree view."""
+    lines = []
+    root = root.resolve()
+
+    def _walk(dir_path: Path, prefix=""):
+        entries = []
+        for entry in dir_path.iterdir():
+            if entry.is_dir() and entry.name in EXCLUDE_FOLDERS:
+                continue
+            entries.append(entry)
+
+        entries.sort(key=lambda p: (p.is_file(), p.name.lower()))
+
+        for i, entry in enumerate(entries):
+            connector = "└── " if i == len(entries) - 1 else "├── "
+            lines.append(f"{prefix}{connector}{entry.name}")
+
+            if entry.is_dir():
+                extension = "    " if i == len(entries) - 1 else "│   "
+                _walk(entry, prefix + extension)
+
+    lines.append(root.name)
+    _walk(root)
+    return lines
+
+
+def escape_triple_backticks(text: str):
+    """Prevent markdown code block breaks."""
+    return text.replace("`​``", "`\u200b``")
+
+
+def dump_folder(root_path: str, out_file: str, max_size: int):
+    root = Path(root_path)
+
+    if not root.exists() or not root.is_dir():
+        raise SystemExit(f"Error: '{root_path}' is not a valid directory.")
+
+    out_path = Path(out_file)
+
+    with out_path.open("w", encoding="utf-8") as out:
+
+        # Header
+        out.write(f"# Folder dump for: {root.resolve()}\n\n")
+
+        # Folder structure
+        out.write("## Folder structure\n\n")
+        for line in build_tree(root):
+            out.write(line + "\n")
+
+        out.write("\n---\n\n")
+        out.write("## Files and contents\n\n")
+
+        # Walk files
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_FOLDERS]
+
+            rel_dir = os.path.relpath(dirpath, root)
+
+            for fname in sorted(filenames):
+                if any(fname.endswith(ext) for ext in EXCLUDE_EXTENSIONS):
+                    continue
+
+                file_path = Path(dirpath) / fname
+                rel_path = fname if rel_dir == "." else os.path.join(rel_dir, fname)
+
+                out.write(f"### {rel_path}\n\n")
+
+                try:
+                    size = file_path.stat().st_size
+                except Exception as e:
+                    out.write(f"_Could not read file info: {e}_\n\n")
+                    continue
+
+                if max_size and size > max_size:
+                    out.write(f"_Skipped (size {size} bytes exceeds limit)_\n\n")
+                    continue
+
+                if is_binary_file(file_path):
+                    out.write(f"_Skipped binary file (size {size} bytes)_\n\n")
+                    continue
+
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                except Exception as e:
+                    out.write(f"_Could not read file: {e}_\n\n")
+                    continue
+
+                content = escape_triple_backticks(content)
+
+                lang = file_path.suffix.lstrip(".").lower()
+
+                out.write(f"`​``{lang}\n")
+                out.write(content)
+                if not content.endswith("\n"):
+                    out.write("\n")
+                out.write("`​``\n\n")
+
+    print(f"✅ Done. Output written to: {out_path.resolve()}")
+
+
+if __name__ == "__main__":
+    dump_folder(HARDCODED_FOLDER, OUTPUT_FILE, MAX_SIZE)
+```
+
+### backend\privacyGuardian-BACKEND.txt
+
+```txt
+# Folder dump for: C:\BYTECAMP\backend
+
+## Folder structure
+
+backend
+├── backend
+│   ├── app
+│   │   ├── __init__.py
+│   │   ├── config.py
+│   │   ├── database.py
+│   │   └── main.py
+│   ├── connectors
+│   │   ├── __init__.py
+│   │   ├── base_connector.py
+│   │   ├── cloud_connector.py
+│   │   ├── file_scanner.py
+│   │   ├── mongodb_connector.py
+│   │   └── sql_connector.py
+│   ├── models
+│   │   ├── __init__.py
+│   │   ├── consent_model.py
+│   │   ├── data_location_model.py
+│   │   ├── logs_model.py
+│   │   └── user_model.py
+│   ├── routes
+│   │   ├── __init__.py
+│   │   ├── chatbot_routes.py
+│   │   ├── consent_routes.py
+│   │   ├── dashboard_routes.py
+│   │   ├── deletion_routes.py
+│   │   ├── logs_routes.py
+│   │   ├── pii_routes.py
+│   │   └── user_routes.py
+│   ├── services
+│   │   ├── __init__.py
+│   │   ├── chatbot_processor.py
+│   │   ├── compliance_logger.py
+│   │   ├── consent_service.py
+│   │   ├── data_mapping_service.py
+│   │   ├── deletion_service.py
+│   │   └── pii_detection_service.py
+│   ├── utils
+│   │   ├── __init__.py
+│   │   ├── constants.py
+│   │   └── helpers.py
+│   ├── .env
+│   ├── CODE-MAKER.PY
+│   ├── privacyGuardian-BACKEND.txt
+│   └── requirements.txt
+└── RANDOM_DATAGEN.py
+
+---
+
+## Files and contents
+
+### RANDOM_DATAGEN.py
+
+`​``py
+import random
+import string
+from datetime import datetime
+from pymongo import MongoClient
+
+# Connect to MongoDB
+client = MongoClient("mongodb://localhost:27017")
+db = client["privacyguardian"]
+
+# Clear existing collections (optional - comment out if you want to keep existing data)
+db.users.drop()
+db.data_locations.drop()
+db.consents.drop()
+print("Cleared existing collections.")
+
+# Initialize Faker with Indian locale
+from faker import Faker
+fake = Faker('en_IN')
+
+def generate_aadhaar():
+    """Generate a random 12-digit Aadhaar number"""
+    return ''.join([str(random.randint(0,9)) for _ in range(12)])
+
+def generate_pan():
+    """Generate a random PAN in format ABCDE1234F"""
+    letters = ''.join(random.choices(string.ascii_uppercase, k=5))
+    digits = ''.join(random.choices(string.digits, k=4))
+    last_letter = random.choice(string.ascii_uppercase)
+    return letters + digits + last_letter
+
+def generate_phone():
+    """Generate Indian mobile number starting with 6-9, 10 digits"""
+    first = str(random.randint(6,9))
+    rest = ''.join([str(random.randint(0,9)) for _ in range(9)])
+    return first + rest
+
+def generate_email(name):
+    """Generate email from name"""
+    return name.lower().replace(' ', '.') + "@example.com"
+
+# Generate 20 test users
+users = []
+for i in range(20):
+    name = fake.name()
+    email = generate_email(name)
+    phone = generate_phone()
+    aadhaar = generate_aadhaar()
+    pan = generate_pan()
+    address = fake.address().replace('\n', ', ')
+    
+    user = {
+        "user_id": str(1000 + i),  # simple numeric ID
+        "name": name,
+        "email": email,
+        "phone": phone,
+        "aadhaar": aadhaar,
+        "pan": pan,
+        "address": address,
+        "passport": None,  # optional
+        "driving_license": None,
+        "account_number": None
+    }
+    users.append(user)
+
+# Insert users
+result = db.users.insert_many(users)
+print(f"Inserted {len(result.inserted_ids)} users.")
+
+# For each user, create a data location entry (pointing to the MongoDB collection)
+locations = []
+for user in users:
+    loc_entry = {
+        "user_id": user["user_id"],
+        "locations": [
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "aadhaar",
+                "value": user["aadhaar"]
+            },
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "pan",
+                "value": user["pan"]
+            },
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "phone",
+                "value": user["phone"]
+            },
+            {
+                "system": "MongoDB",
+                "database": "privacyguardian",
+                "collection": "users",
+                "field": "email",
+                "value": user["email"]
+            }
+        ],
+        "last_updated": datetime.utcnow().isoformat() + "Z"
+    }
+    locations.append(loc_entry)
+
+# Insert data locations
+db.data_locations.insert_many(locations)
+print(f"Inserted {len(locations)} data location records.")
+
+# Generate consents for each user
+consents = []
+for user in users:
+    consent = {
+        "user_id": user["user_id"],
+        "purpose": "data_processing",
+        "status": random.choice(["active", "active", "active", "withdrawn"]),  # 75% active
+        "granted_at": fake.date_time_between(start_date="-2y", end_date="now").isoformat() + "Z",
+        "withdrawn_at": None
+    }
+    if consent["status"] == "withdrawn":
+        consent["withdrawn_at"] = fake.date_time_between(start_date=consent["granted_at"], end_date="now").isoformat() + "Z"
+    consents.append(consent)
+
+db.consents.insert_many(consents)
+print(f"Inserted {len(consents)} consent records.")
+
+print("\nTest data population complete!")
+print("Sample user IDs:", [u["user_id"] for u in users[:5]])
+`​``
+
+### backend\.env
+
+`​``
+
+`​``
+
+### backend\CODE-MAKER.PY
+
+`​``py
+#!/usr/bin/env python3
+
+import os
+from pathlib import Path
+
+# --------------------------------------
+# HARDCODED FOLDER PATH
+# --------------------------------------
+HARDCODED_FOLDER = r"C:\\BYTECAMP\\backend"
+
+# Output file name
+OUTPUT_FILE = "privacyGuardian-BACKEND.txt"
+
+# Max file size (0 = no limit)
+MAX_SIZE = 0
+
+# Folders to exclude
+EXCLUDE_FOLDERS = {'venv', '__pycache__', '.git', '.idea', '.vscode'}
+
+# File extensions to exclude
+EXCLUDE_EXTENSIONS = {'.pyc', '.pyo', '.pyd', '.so', '.dll', '.exe'}
+
+# --------------------------------------
+
+
+def is_binary_file(path, blocksize=1024):
+    """Detect binary files safely."""
+    try:
+        with open(path, "rb") as f:
+            block = f.read(blocksize)
+            if not block:
+                return False
+            if b"\x00" in block:
+                return True
+            text_chars = bytearray({7, 8, 9, 10, 12, 13, 27} | set(range(0x20, 0x100)))
+            nontext = sum(1 for b in block if b not in text_chars)
+            return (nontext / max(1, len(block))) > 0.30
+    except Exception:
+        return True
+
+
+def build_tree(root: Path):
+    """Build a clean folder tree view."""
+    lines = []
+    root = root.resolve()
+
+    def _walk(dir_path: Path, prefix=""):
+        entries = []
+        for entry in dir_path.iterdir():
+            if entry.is_dir() and entry.name in EXCLUDE_FOLDERS:
+                continue
+            entries.append(entry)
+
+        entries.sort(key=lambda p: (p.is_file(), p.name.lower()))
+
+        for i, entry in enumerate(entries):
+            connector = "└── " if i == len(entries) - 1 else "├── "
+            lines.append(f"{prefix}{connector}{entry.name}")
+
+            if entry.is_dir():
+                extension = "    " if i == len(entries) - 1 else "│   "
+                _walk(entry, prefix + extension)
+
+    lines.append(root.name)
+    _walk(root)
+    return lines
+
+
+def escape_triple_backticks(text: str):
+    """Prevent markdown code block breaks."""
+    return text.replace("`​``", "`\u200b``")
+
+
+def dump_folder(root_path: str, out_file: str, max_size: int):
+    root = Path(root_path)
+
+    if not root.exists() or not root.is_dir():
+        raise SystemExit(f"Error: '{root_path}' is not a valid directory.")
+
+    out_path = Path(out_file)
+
+    with out_path.open("w", encoding="utf-8") as out:
+
+        # Header
+        out.write(f"# Folder dump for: {root.resolve()}\n\n")
+
+        # Folder structure
+        out.write("## Folder structure\n\n")
+        for line in build_tree(root):
+            out.write(line + "\n")
+
+        out.write("\n---\n\n")
+        out.write("## Files and contents\n\n")
+
+        # Walk files
+        for dirpath, dirnames, filenames in os.walk(root):
+            dirnames[:] = [d for d in dirnames if d not in EXCLUDE_FOLDERS]
+
+            rel_dir = os.path.relpath(dirpath, root)
+
+            for fname in sorted(filenames):
+                if any(fname.endswith(ext) for ext in EXCLUDE_EXTENSIONS):
+                    continue
+
+                file_path = Path(dirpath) / fname
+                rel_path = fname if rel_dir == "." else os.path.join(rel_dir, fname)
+
+                out.write(f"### {rel_path}\n\n")
+
+                try:
+                    size = file_path.stat().st_size
+                except Exception as e:
+                    out.write(f"_Could not read file info: {e}_\n\n")
+                    continue
+
+                if max_size and size > max_size:
+                    out.write(f"_Skipped (size {size} bytes exceeds limit)_\n\n")
+                    continue
+
+                if is_binary_file(file_path):
+                    out.write(f"_Skipped binary file (size {size} bytes)_\n\n")
+                    continue
+
+                try:
+                    content = file_path.read_text(encoding="utf-8", errors="replace")
+                except Exception as e:
+                    out.write(f"_Could not read file: {e}_\n\n")
+                    continue
+
+                content = escape_triple_backticks(content)
+
+                lang = file_path.suffix.lstrip(".").lower()
+
+                out.write(f"`​``{lang}\n")
+                out.write(content)
+                if not content.endswith("\n"):
+                    out.write("\n")
+                out.write("`​``\n\n")
+
+    print(f"✅ Done. Output written to: {out_path.resolve()}")
+
+
+if __name__ == "__main__":
+    dump_folder(HARDCODED_FOLDER, OUTPUT_FILE, MAX_SIZE)
+```
+
+### backend\requirements.txt
+
+```txt
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+motor==3.1.2
+pymongo==4.3.3
+pydantic[email]==2.5.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+email-validator==2.1.0
+```
+
+### backend\app\__init__.py
+
+```py
+
+```
+
+### backend\app\config.py
+
+```py
+import os
+from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+load_dotenv()
+
+class Settings(BaseSettings):
+    # MongoDB
+    MONGODB_URL: str = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+    MONGODB_DB_NAME: str = os.getenv("MONGODB_DB_NAME", "privacyguardian")
+    
+    # CORS
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:3000")
+    
+    # Optional Redis
+    REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
+    
+    # Logging
+    LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+    
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+```
+
+### backend\app\database.py
+
+```py
+# app/database.py
+from motor.motor_asyncio import AsyncIOMotorClient
+from app.config import settings
+
+class MongoDB:
+    client: AsyncIOMotorClient = None
+    db = None
+
+mongodb = MongoDB()
+
+async def connect_to_mongo():
+    """Create MongoDB connection"""
+    mongodb.client = AsyncIOMotorClient(settings.MONGODB_URL)
+    mongodb.db = mongodb.client[settings.MONGODB_DB_NAME]
+    print("Connected to MongoDB.")
+
+async def close_mongo_connection():
+    """Close MongoDB connection"""
+    if mongodb.client:
+        mongodb.client.close()
+        print("Disconnected from MongoDB.")
+
+def get_db():
+    """Dependency to get database instance"""
+    return mongodb.db
+```
+
+### backend\app\main.py
+
+```py
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from app.database import connect_to_mongo, close_mongo_connection
+from routes import (
+    dashboard_routes,
+    user_routes,
+    deletion_routes,
+    consent_routes,
+    logs_routes,
+    pii_routes,
+    chatbot_routes,
+)
+
+app = FastAPI(title="PrivacyGuardian API", version="1.0.0")
+
+# CORS for Next.js frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Update with frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register routers
+app.include_router(dashboard_routes.router, prefix="/api", tags=["Dashboard"])
+app.include_router(user_routes.router, prefix="/api", tags=["User"])
+app.include_router(deletion_routes.router, prefix="/api", tags=["Deletion"])
+app.include_router(consent_routes.router, prefix="/api", tags=["Consent"])
+app.include_router(logs_routes.router, prefix="/api", tags=["Logs"])
+app.include_router(pii_routes.router, prefix="/api", tags=["PII"])
+app.include_router(chatbot_routes.router, prefix="/api", tags=["Chatbot"])
+
+@app.on_event("startup")
+async def startup_event():
+    await connect_to_mongo()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_mongo_connection()
+```
+
+### backend\connectors\__init__.py
+
+```py
+from .mongodb_connector import MongoDBConnector
+from .sql_connector import SQLConnector
+from .file_scanner import FileScanner
+from .cloud_connector import CloudConnector
+```
+
+### backend\connectors\base_connector.py
+
+```py
+# connectors/base_connector.py
+from abc import ABC, abstractmethod
+
+class BaseConnector(ABC):
+    @abstractmethod
+    async def delete_all(self, location: dict, user_id: str) -> bool:
+        """Delete all data for user from this system"""
+        pass
+
+    @abstractmethod
+    async def delete_field(self, location_path: str, value: str) -> bool:
+        """Delete a specific field/value from this system"""
+        pass
+```
+
+### backend\connectors\cloud_connector.py
+
+```py
+from .base_connector import BaseConnector
+
+class CloudConnector(BaseConnector):
+    """Mock cloud storage connector"""
+    async def delete_all(self, location: dict, user_id: str) -> bool:
+        print(f"Deleting all objects for user {user_id} from bucket {location.get('bucket')}")
+        return True
+
+    async def delete_field(self, location_path: str, value: str) -> bool:
+        print(f"Deleting object containing {value} from cloud location {location_path}")
+        return True
+```
+
+### backend\connectors\file_scanner.py
+
+```py
+# connectors/file_scanner.py
+from .base_connector import BaseConnector
+
+class FileScanner(BaseConnector):
+    """Mock file scanner for demonstration"""
+    async def delete_all(self, location: dict, user_id: str) -> bool:
+        print(f"Deleting all files for user {user_id} from {location.get('file_path')}")
+        return True
+
+    async def delete_field(self, location_path: str, value: str) -> bool:
+        print(f"Removing value {value} from file {location_path}")
+        return True
+```
+
+### backend\connectors\mongodb_connector.py
+
+```py
+from .base_connector import BaseConnector
+
+class MongoDBConnector(BaseConnector):
+    def __init__(self, db):
+        self.db = db  # This is our main app db, but in real scenario might connect to external MongoDB
+
+    async def delete_all(self, location: dict, user_id: str) -> bool:
+        """Delete user document from MongoDB collection"""
+        # location example: {"system": "MongoDB", "collection": "users", ...}
+        collection_name = location.get("collection")
+        if not collection_name:
+            return False
+        collection = self.db[collection_name]
+        # Delete based on user_id field
+        result = await collection.delete_one({"user_id": user_id})
+        return result.deleted_count > 0
+
+    async def delete_field(self, location_path: str, value: str) -> bool:
+        """Delete field from MongoDB document"""
+        # location_path like "MongoDB.users.aadhaar"
+        parts = location_path.split('.')
+        if len(parts) < 3:
+            return False
+        collection_name = parts[1]
+        field = parts[2]
+        collection = self.db[collection_name]
+        # We need to know which document contains this value. For simplicity, assume we can find by value.
+        # In real scenario, we'd have more context.
+        result = await collection.update_one(
+            {field: value},
+            {"$unset": {field: ""}}
+        )
+        return result.modified_count > 0
+```
+
+### backend\connectors\sql_connector.py
+
+```py
+from .base_connector import BaseConnector
+
+class SQLConnector(BaseConnector):
+    """Mock SQL connector for demonstration"""
+    async def delete_all(self, location: dict, user_id: str) -> bool:
+        # Simulate deletion from SQL
+        print(f"Deleting all data for user {user_id} from SQL table {location.get('table')}")
+        return True
+
+    async def delete_field(self, location_path: str, value: str) -> bool:
+        print(f"Deleting field {location_path} with value {value} from SQL")
+        return True
+```
+
+### backend\models\__init__.py
+
+```py
+from .user_model import UserResponse, UserUpdate
+from .consent_model import ConsentResponse, ConsentWithdraw
+from .data_location_model import DataLocation, LocationEntry
+from .logs_model import ComplianceLogResponse
+```
+
+### backend\models\consent_model.py
+
+```py
+# models/consent_model.py
+from pydantic import BaseModel
+from typing import Optional
+
+class ConsentResponse(BaseModel):
+    consent_id: str
+    user_id: str
+    purpose: str
+    status: str  # active, withdrawn
+    granted_at: str
+    withdrawn_at: Optional[str] = None
+
+class ConsentWithdraw(BaseModel):
+    consent_id: str
+    user_id: str
+```
+
+### backend\models\data_location_model.py
+
+```py
+# models/data_location_model.py
+from pydantic import BaseModel
+from typing import List, Optional
+
+class LocationEntry(BaseModel):
+    system: str
+    database: Optional[str] = None
+    collection: Optional[str] = None
+    bucket: Optional[str] = None
+    table: Optional[str] = None
+    field: Optional[str] = None
+    value: Optional[str] = None
+    file_path: Optional[str] = None
+
+class DataLocation(BaseModel):
+    user_id: str
+    locations: List[LocationEntry]
+    last_updated: str
+```
+
+### backend\models\logs_model.py
+
+```py
+# models/logs_model.py
+from pydantic import BaseModel
+from typing import Optional, Any, Dict
+
+class ComplianceLogResponse(BaseModel):
+    log_id: str
+    user_id: str
+    action: str
+    field: Optional[str] = None
+    systems_cleaned: Optional[int] = None
+    status: str
+    timestamp: str
+    details: Optional[Dict[str, Any]] = None
+```
+
+### backend\models\user_model.py
+
+```py
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+
+class UserResponse(BaseModel):
+    user_id: str
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    aadhaar: Optional[str] = None
+    pan: Optional[str] = None
+    address: Optional[str] = None
+    passport: Optional[str] = None
+    driving_license: Optional[str] = None
+    account_number: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    user_id: str
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+```
+
+### backend\routes\__init__.py
+
+```py
+# Expose routers
+from . import dashboard_routes
+from . import user_routes
+from . import deletion_routes
+from . import consent_routes
+from . import logs_routes
+from . import pii_routes
+from . import chatbot_routes
+```
+
+### backend\routes\chatbot_routes.py
+
+```py
+from fastapi import APIRouter, HTTPException, Depends
+from services.chatbot_processor import ChatbotProcessor
+from app.database import get_db
+
+router = APIRouter()
+
+def get_chatbot_processor(db=Depends(get_db)):
+    return ChatbotProcessor(db)
+
+@router.post("/chatbot")
+async def chatbot(
+    request: dict,
+    processor: ChatbotProcessor = Depends(get_chatbot_processor)
+):
+    """Process natural language commands from chatbot"""
+    user_id = request.get("user_id")
+    message = request.get("message")
+    if not user_id or not message:
+        raise HTTPException(status_code=400, detail="user_id and message are required")
+    action = await processor.parse_and_execute(user_id, message)
+    return action
+```
+
+### backend\routes\consent_routes.py
+
+```py
+from fastapi import APIRouter, HTTPException, Query, Depends
+from services.consent_service import ConsentService
+from app.database import get_db
+
+router = APIRouter()
+
+def get_consent_service(db=Depends(get_db)):
+    return ConsentService(db)
+
+@router.get("/consents")
+async def get_consents(
+    user_id: str = Query(..., description="User ID"),
+    consent_svc: ConsentService = Depends(get_consent_service)
+):
+    """Get all consents for a user"""
+    consents = await consent_svc.get_user_consents(user_id)
+    return consents
+
+@router.post("/withdraw-consent")
+async def withdraw_consent(
+    request: dict,
+    consent_svc: ConsentService = Depends(get_consent_service)
+):
+    """Withdraw a specific consent"""
+    consent_id = request.get("consent_id")
+    user_id = request.get("user_id")
+    if not consent_id or not user_id:
+        raise HTTPException(status_code=400, detail="consent_id and user_id are required")
+    result = await consent_svc.withdraw_consent(consent_id, user_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Consent not found or already withdrawn")
+    return result
+```
+
+### backend\routes\dashboard_routes.py
+
+```py
+from fastapi import APIRouter, Depends
+from services.data_mapping_service import DataMappingService
+from services.consent_service import ConsentService
+from services.deletion_service import DeletionService
+
+router = APIRouter()
+
+@router.get("/stats")
+async def get_stats(
+    data_svc: DataMappingService = Depends(),
+    consent_svc: ConsentService = Depends(),
+    deletion_svc: DeletionService = Depends()
+):
+    total_users = await data_svc.get_total_users()
+    total_locations = await data_svc.get_total_locations()
+    pending = await deletion_svc.get_pending_count()
+    active_consents = await consent_svc.get_active_count()
+    return {
+        "total_users": total_users,
+        "total_data_locations": total_locations,
+        "pending_deletion_requests": pending,
+        "active_consents": active_consents
+    }
+```
+
+### backend\routes\deletion_routes.py
+
+```py
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from services.deletion_service import DeletionService
+from services.compliance_logger import ComplianceLogger
+from app.database import get_db
+
+router = APIRouter()
+
+def get_deletion_service(db=Depends(get_db)):
+    return DeletionService(db)
+
+def get_compliance_logger(db=Depends(get_db)):
+    return ComplianceLogger(db)
+
+@router.post("/delete-user")
+async def delete_user(
+    request: dict,
+    background_tasks: BackgroundTasks,
+    deletion_svc: DeletionService = Depends(get_deletion_service),
+    logger: ComplianceLogger = Depends(get_compliance_logger)
+):
+    """Delete all personal data of a user across all systems"""
+    user_id = request.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=400, detail="user_id is required")
+    # Start background task
+    background_tasks.add_task(deletion_svc.delete_all_user_data, user_id, logger)
+    return {"status": "processing", "message": f"Deletion of all data for user {user_id} started"}
+
+@router.post("/delete-field")
+async def delete_field(
+    request: dict,
+    background_tasks: BackgroundTasks,
+    deletion_svc: DeletionService = Depends(get_deletion_service),
+    logger: ComplianceLogger = Depends(get_compliance_logger)
+):
+    """Delete a specific PII field for a user"""
+    user_id = request.get("user_id")
+    field = request.get("field")
+    value = request.get("value")
+    if not user_id or not field:
+        raise HTTPException(status_code=400, detail="user_id and field are required")
+    background_tasks.add_task(deletion_svc.delete_field, user_id, field, value, logger)
+    return {"status": "processing", "message": f"Deletion of {field} for user {user_id} started"}
+```
+
+### backend\routes\logs_routes.py
+
+```py
+from fastapi import APIRouter, Query, Depends
+from services.compliance_logger import ComplianceLogger
+from app.database import get_db
+
+router = APIRouter()
+
+def get_compliance_logger(db=Depends(get_db)):
+    return ComplianceLogger(db)
+
+@router.get("/compliance-logs")
+async def get_compliance_logs(
+    user_id: str = Query(None, description="Filter by user ID"),
+    limit: int = Query(100, description="Max number of logs to return"),
+    logger: ComplianceLogger = Depends(get_compliance_logger)
+):
+    """Retrieve compliance logs, optionally filtered by user"""
+    logs = await logger.get_logs(user_id=user_id, limit=limit)
+    return logs
+```
+
+### backend\routes\pii_routes.py
+
+```py
+from fastapi import APIRouter, HTTPException, Query, Depends
+from services.pii_detection_service import PIIDetectionService
+from services.data_mapping_service import DataMappingService
+from app.database import get_db
+
+router = APIRouter()
+
+def get_pii_service():
+    return PIIDetectionService()
+
+def get_data_mapping_service(db=Depends(get_db)):
+    return DataMappingService(db)
+
+@router.get("/pii-detection")
+async def detect_pii(
+    value: str = Query(..., description="Value to detect PII type"),
+    pii_svc: PIIDetectionService = Depends(get_pii_service),
+    mapping_svc: DataMappingService = Depends(get_data_mapping_service)
+):
+    """Detect PII type from a given input value and find where it appears"""
+    pii_type = pii_svc.detect_type(value)
+    locations = await mapping_svc.find_value_in_locations(value)
+    return {
+        "input_value": value,
+        "type": pii_type,
+        "locations_found": locations
+    }
+```
+
+### backend\routes\user_routes.py
+
+```py
+# routes/user_routes.py
+from fastapi import APIRouter, HTTPException, Query, Depends
+from services.data_mapping_service import DataMappingService
+from models.user_model import UserResponse, UserUpdate
+from app.database import get_db
+
+router = APIRouter()
+
+def get_data_mapping_service(db=Depends(get_db)):
+    return DataMappingService(db)
+
+@router.get("/user-data", response_model=UserResponse)
+async def get_user_data(
+    user_id: str = Query(..., description="User ID"),
+    data_svc: DataMappingService = Depends(get_data_mapping_service)
+):
+    """Retrieve all personal data for a user"""
+    user = await data_svc.get_user_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    # Convert _id to str if present
+    if "_id" in user:
+        user["user_id"] = str(user["_id"])
+    return user
+
+@router.put("/update-user", response_model=UserResponse)
+async def update_user(
+    update: UserUpdate,
+    data_svc: DataMappingService = Depends(get_data_mapping_service)
+):
+    """Update user's personal information"""
+    updated = await data_svc.update_user(update.user_id, update.dict(exclude_unset=True))
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found or update failed")
+    return updated
+
+@router.get("/data-map")
+async def get_data_map(
+    user_id: str = Query(..., description="User ID"),
+    data_svc: DataMappingService = Depends(get_data_mapping_service)
+):
+    """Get data map for a specific user (where their data resides)"""
+    mapping = await data_svc.get_user_data_map(user_id)
+    if not mapping:
+        raise HTTPException(status_code=404, detail="User data map not found")
+    # Format response as per frontend contract
+    user_email = mapping.get("email", "unknown")
+    locations = [f"{loc['system']} {loc.get('collection', loc.get('bucket', ''))}" for loc in mapping.get("locations", [])]
+    return {
+        "user": user_email,
+        "locations": locations
+    }
+```
+
+### backend\services\__init__.py
+
+```py
+
+```
+
+### backend\services\chatbot_processor.py
+
+```py
+from services.deletion_service import DeletionService
+from services.compliance_logger import ComplianceLogger
+
+class ChatbotProcessor:
+    def __init__(self, db):
+        self.db = db
+        self.deletion_svc = DeletionService(db)
+        self.logger = ComplianceLogger(db)
+
+    async def parse_and_execute(self, user_id: str, message: str) -> dict:
+        """Parse message and trigger appropriate action"""
+        msg_lower = message.lower()
+        # Simple keyword matching
+        if "delete all my data" in msg_lower or "delete all data" in msg_lower:
+            # Trigger full deletion (background task would be better, but for API response we can just start)
+            # In a real system, we might return a job ID.
+            await self.deletion_svc.delete_all_user_data(user_id, self.logger)
+            return {"action": "delete_all", "status": "completed", "message": "All data deletion initiated"}
+        elif "delete my aadhaar" in msg_lower or "remove aadhaar" in msg_lower:
+            await self.deletion_svc.delete_field(user_id, "aadhaar", None, self.logger)
+            return {"action": "delete_field", "field": "aadhaar", "status": "completed"}
+        elif "delete my pan" in msg_lower or "remove pan" in msg_lower:
+            await self.deletion_svc.delete_field(user_id, "pan", None, self.logger)
+            return {"action": "delete_field", "field": "pan", "status": "completed"}
+        elif "delete my phone" in msg_lower or "remove phone" in msg_lower:
+            await self.deletion_svc.delete_field(user_id, "phone", None, self.logger)
+            return {"action": "delete_field", "field": "phone", "status": "completed"}
+        elif "delete my email" in msg_lower or "remove email" in msg_lower:
+            await self.deletion_svc.delete_field(user_id, "email", None, self.logger)
+            return {"action": "delete_field", "field": "email", "status": "completed"}
+        else:
+            return {"action": "unknown", "message": "Command not recognized"}
+```
+
+### backend\services\compliance_logger.py
+
+```py
+from typing import Optional, List, Dict, Any
+from datetime import datetime
+
+class ComplianceLogger:
+    def __init__(self, db):
+        self.db = db
+        self.collection = db.compliance_logs
+
+    async def log(self, entry: Dict[str, Any]):
+        """Insert a log entry with timestamp"""
+        entry["timestamp"] = datetime.utcnow().isoformat() + "Z"
+        await self.collection.insert_one(entry)
+
+    async def get_logs(self, user_id: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+        query = {}
+        if user_id:
+            query["user_id"] = user_id
+        cursor = self.collection.find(query).sort("timestamp", -1).limit(limit)
+        logs = await cursor.to_list(length=limit)
+        # Convert ObjectId to string
+        for log in logs:
+            log["log_id"] = str(log["_id"])
+            log.pop("_id", None)
+        return logs
+```
+
+### backend\services\consent_service.py
+
+```py
+from typing import List, Dict, Any, Optional
+from datetime import datetime
+
+class ConsentService:
+    def __init__(self, db):
+        self.db = db
+        self.collection = db.consents
+
+    async def get_user_consents(self, user_id: str) -> List[Dict[str, Any]]:
+        cursor = self.collection.find({"user_id": user_id})
+        consents = await cursor.to_list(length=100)
+        # Convert ObjectId to string
+        for c in consents:
+            c["consent_id"] = str(c["_id"])
+            c.pop("_id", None)
+        return consents
+
+    async def get_active_count(self) -> int:
+        return await self.collection.count_documents({"status": "active"})
+
+    async def withdraw_consent(self, consent_id: str, user_id: str) -> Optional[Dict[str, Any]]:
+        from bson import ObjectId
+        result = await self.collection.update_one(
+            {"_id": ObjectId(consent_id), "user_id": user_id, "status": "active"},
+            {"$set": {"status": "withdrawn", "withdrawn_at": datetime.utcnow().isoformat() + "Z"}}
+        )
+        if result.modified_count == 1:
+            consent = await self.collection.find_one({"_id": ObjectId(consent_id)})
+            consent["consent_id"] = str(consent["_id"])
+            consent.pop("_id")
+            return consent
+        return None
+```
+
+### backend\services\data_mapping_service.py
+
+```py
+from typing import List, Dict, Any, Optional
+from bson import ObjectId
+
+class DataMappingService:
+    def __init__(self, db):
+        self.db = db
+        self.users_collection = db.users
+        self.locations_collection = db.data_locations
+
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieve user profile by user_id (string)"""
+        # Try to convert to ObjectId if it's a valid 24-char hex
+        try:
+            obj_id = ObjectId(user_id)
+            user = await self.users_collection.find_one({"_id": obj_id})
+        except:
+            # If not a valid ObjectId, treat as string field 'user_id'
+            user = await self.users_collection.find_one({"user_id": user_id})
+        return user
+
+    async def update_user(self, user_id: str, update_data: dict) -> Optional[Dict[str, Any]]:
+        """Update user fields"""
+        # Determine query
+        try:
+            obj_id = ObjectId(user_id)
+            query = {"_id": obj_id}
+        except:
+            query = {"user_id": user_id}
+        result = await self.users_collection.update_one(query, {"$set": update_data})
+        if result.modified_count == 1:
+            return await self.get_user_by_id(user_id)
+        return None
+
+    async def get_user_data_map(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """Get data locations for user"""
+        # First get user to have email
+        user = await self.get_user_by_id(user_id)
+        if not user:
+            return None
+        # Get locations document
+        loc_doc = await self.locations_collection.find_one({"user_id": user_id})
+        if not loc_doc:
+            # Return empty locations
+            return {"user_id": user_id, "email": user.get("email"), "locations": []}
+        loc_doc["email"] = user.get("email")
+        return loc_doc
+
+    async def find_value_in_locations(self, value: str) -> List[str]:
+        """Search across all location records for a specific value"""
+        cursor = self.locations_collection.find({"locations.value": value})
+        results = []
+        async for doc in cursor:
+            for loc in doc.get("locations", []):
+                if loc.get("value") == value:
+                    system = loc.get("system", "unknown")
+                    container = loc.get("collection") or loc.get("bucket") or loc.get("table") or ""
+                    field = loc.get("field", "")
+                    results.append(f"{system}.{container}.{field}".rstrip('.'))
+        return results
+
+    async def remove_location_entries(self, user_id: str, value: str):
+        """Remove location entries that contain a specific value"""
+        await self.locations_collection.update_one(
+            {"user_id": user_id},
+            {"$pull": {"locations": {"value": value}}}
+        )
+
+    async def get_total_users(self) -> int:
+        return await self.users_collection.count_documents({})
+
+    async def get_total_locations(self) -> int:
+        pipeline = [{"$unwind": "$locations"}, {"$count": "total"}]
+        result = await self.locations_collection.aggregate(pipeline).to_list(1)
+        return result[0]["total"] if result else 0
+
+    async def get_all_locations_summary(self) -> List[Dict]:
+        """Return summary of all data sources (for dashboard)"""
+        # Simplified: group by system
+        pipeline = [
+            {"$unwind": "$locations"},
+            {"$group": {
+                "_id": "$locations.system",
+                "details": {"$addToSet": {
+                    "database": "$locations.database",
+                    "collection": "$locations.collection",
+                    "bucket": "$locations.bucket"
+                }}
+            }}
+        ]
+        cursor = self.locations_collection.aggregate(pipeline)
+        result = []
+        async for doc in cursor:
+            system = doc["_id"]
+            # Flatten details
+            containers = set()
+            for d in doc["details"]:
+                if d.get("collection"):
+                    containers.add(d["collection"])
+                if d.get("bucket"):
+                    containers.add(d["bucket"])
+            result.append({
+                "system": system,
+                "containers": list(containers)
+            })
+        return result
+```
+
+### backend\services\deletion_service.py
+
+```py
+from typing import Optional
+from connectors.mongodb_connector import MongoDBConnector
+from connectors.sql_connector import SQLConnector
+from connectors.file_scanner import FileScanner
+from connectors.cloud_connector import CloudConnector
+from services.data_mapping_service import DataMappingService
+from services.compliance_logger import ComplianceLogger
+from services.pii_detection_service import PIIDetectionService
+
+class DeletionService:
+    def __init__(self, db):
+        self.db = db
+        self.data_svc = DataMappingService(db)
+        self.pii_svc = PIIDetectionService()
+        # Initialize connectors (mock implementations)
+        self.connectors = {
+            "MongoDB": MongoDBConnector(db),
+            "PostgreSQL": SQLConnector(),
+            "AWS S3": CloudConnector(),
+            "file": FileScanner()
+        }
+
+    async def delete_all_user_data(self, user_id: str, logger: ComplianceLogger):
+        """Delete all data for a user across all systems"""
+        # Get user data map
+        user_map = await self.data_svc.get_user_data_map(user_id)
+        if not user_map:
+            # Log error
+            await logger.log({
+                "user_id": user_id,
+                "action": "delete_all",
+                "status": "failed",
+                "error": "User data map not found"
+            })
+            return
+
+        systems_cleaned = 0
+        locations_affected = []
+        for loc in user_map.get("locations", []):
+            system = loc.get("system")
+            connector = self.connectors.get(system)
+            if connector:
+                success = await connector.delete_all(loc, user_id)
+                if success:
+                    systems_cleaned += 1
+                    locations_affected.append(f"{system}.{loc.get('collection', loc.get('bucket', ''))}")
+        
+        # After deletion, update data map (remove all locations for user)
+        await self.db.data_locations.delete_one({"user_id": user_id})
+        
+        # Log compliance
+        await logger.log({
+            "user_id": user_id,
+            "action": "delete_all",
+            "systems_cleaned": systems_cleaned,
+            "status": "completed",
+            "details": {"locations_affected": locations_affected}
+        })
+
+    async def delete_field(self, user_id: str, field: str, value: Optional[str], logger: ComplianceLogger):
+        """Delete a specific field/value for a user"""
+        # Get user data to find value if not provided
+        user = await self.data_svc.get_user_by_id(user_id)
+        if not user:
+            await logger.log({
+                "user_id": user_id,
+                "action": "delete_field",
+                "field": field,
+                "status": "failed",
+                "error": "User not found"
+            })
+            return
+
+        if not value:
+            value = user.get(field)
+            if not value:
+                await logger.log({
+                    "user_id": user_id,
+                    "action": "delete_field",
+                    "field": field,
+                    "status": "failed",
+                    "error": f"Field {field} not found for user"
+                })
+                return
+
+        # Detect PII type (optional, for logging)
+        pii_type = self.pii_svc.detect_type(value)
+
+        # Find all locations where this value appears
+        locations = await self.data_svc.find_value_in_locations(value)
+        
+        systems_cleaned = 0
+        for loc_path in locations:
+            # Parse loc_path (e.g., "MongoDB.users.aadhaar")
+            parts = loc_path.split('.')
+            system = parts[0]
+            connector = self.connectors.get(system)
+            if connector:
+                # For simplicity, we pass the full location info; connector needs to know how to delete.
+                # In a real system, we'd have a more structured location object.
+                success = await connector.delete_field(loc_path, value)
+                if success:
+                    systems_cleaned += 1
+
+        # Update data map: remove entries with this value
+        await self.data_svc.remove_location_entries(user_id, value)
+
+        # Optionally, update the user document in MongoDB to remove the field
+        await self.db.users.update_one({"_id": user["_id"]}, {"$unset": {field: ""}})
+
+        # Log compliance
+        await logger.log({
+            "user_id": user_id,
+            "action": "delete_field",
+            "field": field,
+            "pii_type": pii_type,
+            "systems_cleaned": systems_cleaned,
+            "status": "completed",
+            "details": {
+                "input": value,
+                "locations_affected": locations
+            }
+        })
+
+    async def get_pending_count(self) -> int:
+        """Count pending deletion requests (simplified)"""
+        # If we had a deletion_requests collection, count pending.
+        # For hackathon, return 0 or mock.
+        return 0
+
+    async def get_pending_requests(self) -> list:
+        """Return list of pending requests"""
+        return []
+```
+
+### backend\services\pii_detection_service.py
+
+```py
+import re
+from utils.constants import PII_PATTERNS
+
+class PIIDetectionService:
+    def __init__(self):
+        self.patterns = PII_PATTERNS
+
+    def detect_type(self, value: str) -> str:
+        """Detect PII type based on regex patterns"""
+        value = value.strip()
+        for pii_type, pattern in self.patterns.items():
+            if pattern.fullmatch(value):
+                return pii_type
+        return "unknown"
+
+    def extract_all(self, text: str) -> list:
+        """Extract all PII values from text (for file scanning)"""
+        found = []
+        for pii_type, pattern in self.patterns.items():
+            matches = pattern.findall(text)
+            for match in matches:
+                found.append({"value": match, "type": pii_type})
+        return found
+```
+
+### backend\utils\__init__.py
+
+```py
+
+```
+
+### backend\utils\constants.py
+
+```py
+import re
+
+# Comprehensive PII regex patterns for India
+PII_PATTERNS = {
+    "aadhaar": re.compile(r'^\d{4}\s?\d{4}\s?\d{4}$|^\d{12}$'),  # 12 digits, optional spaces
+    "pan": re.compile(r'^[A-Z]{5}[0-9]{4}[A-Z]{1}$'),  # e.g., ABCDE1234F
+    "phone": re.compile(r'^(\+91|0)?[6-9]\d{9}$'),  # Indian mobile
+    "email": re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$'),
+    "passport": re.compile(r'^[A-Z][0-9]{7}$'),  # e.g., A1234567
+    "driving_license": re.compile(r'^[A-Z]{2}[0-9]{2}[0-9]{11}$'),  # Simplified
+    "account_number": re.compile(r'^\d{9,18}$'),  # Bank account number
+    "credit_card": re.compile(r'^\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}$'),
+    "voter_id": re.compile(r'^[A-Z]{3}[0-9]{7}$'),  # e.g., ABC1234567
+}
+```
+
+### backend\utils\helpers.py
+
+```py
+from datetime import datetime
+
+def format_timestamp(dt: datetime = None) -> str:
+    """Return ISO format timestamp with Z suffix"""
+    if dt is None:
+        dt = datetime.utcnow()
+    return dt.isoformat() + "Z"
+```
+
